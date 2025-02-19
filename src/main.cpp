@@ -1,10 +1,15 @@
 #include <algorithm>
+#include <bit>
+#include <cstddef>
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
 #include <limits>
+#include <cstdarg>
+#include <cstring>
+#include <climits>
 
 struct DBC_Signal{
     std::string name;
@@ -12,6 +17,8 @@ struct DBC_Signal{
     std::size_t bit_length;
     bool is_little_endian;
     bool is_signed;
+    bool is_single_float;
+    bool is_double_float;
     float factor;
     float offset;
     float min;
@@ -73,6 +80,16 @@ struct DBC_Database{
         std::vector<DBC_Message>::iterator it = std::lower_bound(objects.begin(), objects.end(), DBC_Message{}, [&id](const DBC_Message& lhs, const DBC_Message&){return lhs.id < id;});
         if (it == objects.end()) throw std::invalid_argument("");
         if (it->id != id) throw std::invalid_argument("");
+        return *it;
+    }
+    DBC_Message Get_Message_By_Name(std::string name) const{
+        std::vector<DBC_Message>::const_iterator it = std::find_if(objects.begin(), objects.end(), [&name](const DBC_Message& lhs){return lhs.name == name;});
+        if (it == objects.end()) throw std::invalid_argument("");
+        return *it;
+    }
+    DBC_Message& Get_Message_By_Name_Ref(std::string name){
+        std::vector<DBC_Message>::iterator it = std::find_if(objects.begin(), objects.end(), [&name](const DBC_Message& lhs){return lhs.name == name;});
+        if (it == objects.end()) throw std::invalid_argument("");
         return *it;
     }
 };
@@ -281,6 +298,90 @@ DBC_Database Parse_DBC_File(std::ifstream& dbc_file){
     return output;
 }
 
+int memcpy_bits(std::uint8_t* dest, std::uint8_t* src, std::size_t sbyte, std::size_t sbit, std::size_t blen){
+    if (sbit != 0){ // TODO: Make this more efficient. How? Idk. Bytewise copies somewhere?
+        for (size_t i = 0; i < blen; ++i) {
+            size_t src_bit_index = i;
+            size_t src_byte_index = src_bit_index / 8;
+            size_t src_bit_pos = src_bit_index % 8;
+            uint8_t bit_value = (src[src_byte_index] >> src_bit_pos) & 1;
+
+            size_t dest_bit_index = sbit + i;
+            size_t dest_byte_index = sbyte + dest_bit_index / 8;
+            size_t dest_bit_pos = dest_bit_index % 8;
+
+            if (bit_value) dest[dest_byte_index] |= (1 << dest_bit_pos);
+            else dest[dest_byte_index] &= ~(1 << dest_bit_pos);
+        }
+        return 0;
+    }
+    std::memcpy(dest+sbyte, src, blen/8);
+    if (blen % 8) dest[sbyte+blen/8] ^= src[blen/8] & ((1 << blen % 8) - 1);
+    return 0;
+}
+int Package_CAN_Message(const DBC_Message& message, std::vector<std::uint8_t>* bytes, ...){
+    if (std::endian::native != std::endian::little && std::endian::native != std::endian::big){
+        std::cerr << "Warning (Package_CAN_Message): Cannot determine endianness. Package may be malformed\n";
+        return 1;
+    }
+    bytes->resize(message.length);
+    va_list args;
+    va_start(args, bytes);
+    std::size_t current_byte = 0;
+    std::size_t current_bit = 0;
+    for (std::size_t a = 0; a < message.signals.size(); a++){
+        if (message.signals[a].is_single_float){
+            if (sizeof(float) != 4 || CHAR_BIT != 8){
+                std::cerr << "Error (Package_CAN_Message): Failed to package CAN message. 'float' is not IEEE-754 32-bit float\n";
+                return 1;
+            }
+            float val = va_arg(args, double);
+            std::size_t current_byte = message.signals[a].bit_start / 8;
+            std::size_t current_bit = message.signals[a].bit_start % 8;
+            if (memcpy_bits(bytes->data(), (std::uint8_t*)&val, current_byte, current_bit, message.signals[a].bit_length)){
+                std::cerr << "Error (Package_CAN_Message): Failed to package CAN message\n";
+                return 1;
+            }
+        } else if (message.signals[a].is_double_float){
+            if (sizeof(double) != 8 || CHAR_BIT != 8){
+                std::cerr << "Error (Package_CAN_Message): Failed to package CAN message. 'double' is not IEEE-754 64-bit float\n";
+                return 1;
+            }
+            double val = va_arg(args, double);
+            std::size_t current_byte = message.signals[a].bit_start / 8;
+            std::size_t current_bit = message.signals[a].bit_start % 8;
+            if (memcpy_bits(bytes->data(), (std::uint8_t*)&val, current_byte, current_bit, message.signals[a].bit_length)){
+                std::cerr << "Error (Package_CAN_Message): Failed to package CAN message\n";
+                return 1;
+            }
+        }
+        else if (message.signals[a].is_signed){
+            std::intmax_t val = va_arg(args, std::intmax_t);
+            if (message.signals[a].is_little_endian && std::endian::native == std::endian::big || !message.signals[a].is_little_endian && std::endian::native == std::endian::little){
+                val = std::byteswap(val);
+            }
+            std::size_t current_byte = message.signals[a].bit_start / 8;
+            std::size_t current_bit = message.signals[a].bit_start % 8;
+            if (memcpy_bits(bytes->data(), (std::uint8_t*)&val, current_byte, current_bit, message.signals[a].bit_length)){
+                std::cerr << "Error (Package_CAN_Message): Failed to package CAN message\n";
+                return 1;
+            }
+        } else{
+            std::uintmax_t val = va_arg(args, std::uintmax_t);
+            if (message.signals[a].is_little_endian && std::endian::native == std::endian::big || !message.signals[a].is_little_endian && std::endian::native == std::endian::little){
+                val = std::byteswap(val);
+            }
+            std::size_t current_byte = message.signals[a].bit_start / 8;
+            std::size_t current_bit = message.signals[a].bit_start % 8;
+            if (memcpy_bits(bytes->data(), (std::uint8_t*)&val, current_byte, current_bit, message.signals[a].bit_length)){
+                std::cerr << "Error (Package_CAN_Message): Failed to package CAN message\n";
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char** argv){
     if (argc < 2){
         std::cerr << "Error: Please supply a path to a .dbc file\n";
@@ -293,6 +394,12 @@ int main(int argc, char** argv){
     }
     DBC_Database dbc_db = Parse_DBC_File(file);
 
+    DBC_Message message = dbc_db.Get_Message_By_Name("Axis0_Heartbeat");
+    std::vector<std::uint8_t> packed_message;
+    Package_CAN_Message(message, &packed_message, 1, 2, 1, 1, 1, 1);
+    for (std::uint8_t byte : packed_message) std::cout << +byte << "\n";
+
+    /*
     for (const DBC_Message& message : dbc_db.objects){
         std::cout << message.name << " " << message.id << "\n";
         for (const DBC_Signal& signal : message.signals){
@@ -305,4 +412,5 @@ int main(int argc, char** argv){
         }
         std::cout << "\n";
     }
+    */
 }
