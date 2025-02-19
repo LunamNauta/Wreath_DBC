@@ -465,7 +465,6 @@ int Unpackage_CAN_Message(const DBC_Database& dbc_db, const can_frame& frame, DB
             }
             output->push_back(val);
         } else{
-            std::cout << message.signals[a].bit_start / 8 << " " << message.signals[a].bit_start % 8 << " " << message.signals[a].bit_length << "\n";
             std::uintmax_t val = 0;
             std::size_t current_byte = message.signals[a].bit_start / 8;
             std::size_t current_bit = message.signals[a].bit_start % 8;
