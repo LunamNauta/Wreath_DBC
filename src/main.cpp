@@ -25,7 +25,7 @@ struct DBC_Signal{
     }
 };
 
-struct DBC_Object{
+struct DBC_Message{
     std::size_t id;
     std::string name;
     std::size_t length;
@@ -57,20 +57,20 @@ struct DBC_Val_Decl{
 struct DBC_Database{
     std::string version;
     std::vector<std::string> nodes;
-    std::vector<DBC_Object> objects;
+    std::vector<DBC_Message> objects;
 
-    void Add_Object(const DBC_Object& object){
-        std::vector<DBC_Object>::const_iterator it = std::upper_bound(objects.begin(), objects.end(), object, [](const DBC_Object& lhs, const DBC_Object& rhs){return lhs.id < rhs.id;});
+    void Add_Message(const DBC_Message& object){
+        std::vector<DBC_Message>::const_iterator it = std::upper_bound(objects.begin(), objects.end(), object, [](const DBC_Message& lhs, const DBC_Message& rhs){return lhs.id < rhs.id;});
         objects.insert(it, object);
     }
-    DBC_Object Get_Object_By_ID(std::size_t id) const{
-        std::vector<DBC_Object>::const_iterator it = std::lower_bound(objects.begin(), objects.end(), DBC_Object{}, [&id](const DBC_Object& lhs, const DBC_Object&){return lhs.id < id;});
+    DBC_Message Get_Message_By_ID(std::size_t id) const{
+        std::vector<DBC_Message>::const_iterator it = std::lower_bound(objects.begin(), objects.end(), DBC_Message{}, [&id](const DBC_Message& lhs, const DBC_Message&){return lhs.id < id;});
         if (it == objects.end()) throw std::invalid_argument("");
         if (it->id != id) throw std::invalid_argument("");
         return *it;
     }
-    DBC_Object& Get_Object_By_ID_Ref(std::size_t id){
-        std::vector<DBC_Object>::iterator it = std::lower_bound(objects.begin(), objects.end(), DBC_Object{}, [&id](const DBC_Object& lhs, const DBC_Object&){return lhs.id < id;});
+    DBC_Message& Get_Message_By_ID_Ref(std::size_t id){
+        std::vector<DBC_Message>::iterator it = std::lower_bound(objects.begin(), objects.end(), DBC_Message{}, [&id](const DBC_Message& lhs, const DBC_Message&){return lhs.id < id;});
         if (it == objects.end()) throw std::invalid_argument("");
         if (it->id != id) throw std::invalid_argument("");
         return *it;
@@ -99,7 +99,7 @@ std::string_view::const_iterator Absorb_Until(const std::string_view::const_iter
 #define DBC_ParError_Null(type, line, field){std::cerr << "Error (DBC_Parse, " << type << ", Line #" << line << "): Field '" << field << "' has no length\n"; return 1;}
 #define DBC_ParError_Unex(type, line, expec, val){std::cerr << "Error (DBC_Parse, " << type << ", Line #" << line << "): Expected '" << expec << "', found '" << val << "'"; return 1;}
 
-int Parse_DBC_BO_(const std::string_view& line, std::size_t line_number, DBC_Object* output){
+int Parse_DBC_BO_(const std::string_view& line, std::size_t line_number, DBC_Message* output){
     std::string_view::const_iterator it1, it2, it3;
 
     it1 = Absorb_Spaces(line.begin(), line.end());
@@ -244,33 +244,33 @@ int Parse_DBC_VAL_(const std::string_view& line, std::size_t line_number, DBC_Va
 }
 
 DBC_Database Parse_DBC_File(std::ifstream& dbc_file){
-    std::size_t last_object_id = std::numeric_limits<std::size_t>::max();
+    std::size_t last_message_id = std::numeric_limits<std::size_t>::max();
     DBC_Database output;
-    DBC_Object object;
+    DBC_Message message;
     DBC_Signal signal;
     DBC_Val_Decl val;
 
     std::string line;
     std::size_t line_number = 1;
     while (std::getline(dbc_file, line)){
-        object = {};
-        if (!Parse_DBC_BO_(line, line_number, &object)){
-            output.Add_Object(object);
-            last_object_id = object.id;
+        message = {};
+        if (!Parse_DBC_BO_(line, line_number, &message)){
+            output.Add_Message(message);
+            last_message_id = message.id;
             goto next_line;
         }
 
         signal = {};
         if (!Parse_DBC_SG_(line, line_number, &signal)){
-            if (last_object_id == std::numeric_limits<std::size_t>::max()) goto next_line;
-            output.Get_Object_By_ID_Ref(last_object_id).Add_Signal(signal);
+            if (last_message_id == std::numeric_limits<std::size_t>::max()) goto next_line;
+            output.Get_Message_By_ID_Ref(last_message_id).Add_Signal(signal);
             goto next_line;
         }
 
         val = {};
         if (!Parse_DBC_VAL_(line, line_number, &val)){
-            if (last_object_id == std::numeric_limits<std::size_t>::max()) goto next_line;
-            output.Get_Object_By_ID_Ref(val.object_id).Get_Signal_By_Name_Ref(val.signal_name).Set_Value_Descriptions(val.value_descriptions);
+            if (last_message_id == std::numeric_limits<std::size_t>::max()) goto next_line;
+            output.Get_Message_By_ID_Ref(val.object_id).Get_Signal_By_Name_Ref(val.signal_name).Set_Value_Descriptions(val.value_descriptions);
             goto next_line;
         }
 
@@ -293,9 +293,9 @@ int main(int argc, char** argv){
     }
     DBC_Database dbc_db = Parse_DBC_File(file);
 
-    for (const DBC_Object& object : dbc_db.objects){
-        std::cout << object.name << " " << object.id << "\n";
-        for (const DBC_Signal& signal : object.signals){
+    for (const DBC_Message& message : dbc_db.objects){
+        std::cout << message.name << " " << message.id << "\n";
+        for (const DBC_Signal& signal : message.signals){
             std::cout << "  " << signal.name << " " << signal.bit_start << " " << signal.bit_length << "\n";
             if (!signal.value_descriptions.size()) continue;
             for (const std::pair<std::size_t, std::string>& val_decl : signal.value_descriptions){
