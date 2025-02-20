@@ -77,8 +77,7 @@ struct Database{
         objects.insert(it, object);
     }
     int get_message_bid(std::size_t id, Message* out_message) const{
-        //std::vector<Message>::const_iterator it = std::lowed_bound(objects.begin(), objects.end(), Message{}, [&id](const Message& lhs, const Message&){return lhs.id < id;});
-        auto it = std::find_if(objects.begin(), objects.end(), [&id](const Message& message){return message.id == id;});
+        std::vector<Message>::const_iterator it = std::lower_bound(objects.begin(), objects.end(), Message{}, [&id](const Message& lhs, const Message&){return lhs.id < id;});
         if (it == objects.end()) return 1;
         if (it->id != id) return 1;
         *out_message = *it;
