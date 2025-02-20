@@ -6,13 +6,13 @@
 #include "can.hpp"
 
 struct odrive_heartbeat{
-    std::uintmax_t axis_error : 32;
-    std::uintmax_t axis_state : 8;
-    std::uintmax_t motor_error_flag : 8;
-    std::uintmax_t encoder_error_flag : 8;
-    std::uintmax_t controller_error_flag : 7;
-    std::uintmax_t trajectory_done_flag : 1;
-} __attribute__((packed));
+    std::uint32_t axis_error;
+    std::uint8_t axis_state;
+    std::uint8_t motor_error_flag;
+    std::uint8_t encoder_error_flag;
+    std::uint8_t controller_error_flag;
+    std::uint8_t trajectory_done_flag;
+};
 
 int main(int argc, char** argv){
     if (argc < 2){
@@ -85,12 +85,12 @@ int main(int argc, char** argv){
 
         Wreath::CAN::unpackage_dbc_message(
             message, &frame, 
-            heartbeat.axis_error, 
-            heartbeat.axis_state,
-            heartbeat.motor_error_flag,
-            heartbeat.encoder_error_flag,
-            heartbeat.controller_error_flag,
-            heartbeat.trajectory_done_flag
+            &heartbeat.axis_error, 
+            &heartbeat.axis_state,
+            &heartbeat.motor_error_flag,
+            &heartbeat.encoder_error_flag,
+            &heartbeat.controller_error_flag,
+            &heartbeat.trajectory_done_flag
         );
 
         std::cout << heartbeat_msg.signals[0].get_value_str(heartbeat.axis_error) << " ";
