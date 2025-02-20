@@ -405,7 +405,7 @@ int Package_CAN_Message(const DBC_Message& message, std::vector<std::uint8_t>* b
         else if (message.signals[a].is_signed){
             std::intmax_t val = va_arg(args, std::intmax_t);
             if (message.signals[a].is_little_endian && std::endian::native == std::endian::big || !message.signals[a].is_little_endian && std::endian::native == std::endian::little){
-                val = std::byteswap(val);
+                //val = std::byteswap(val);
             }
             std::size_t current_byte = message.signals[a].bit_start / 8;
             std::size_t current_bit = message.signals[a].bit_start % 8;
@@ -413,7 +413,7 @@ int Package_CAN_Message(const DBC_Message& message, std::vector<std::uint8_t>* b
         } else{
             std::uintmax_t val = va_arg(args, std::uintmax_t);
             if (message.signals[a].is_little_endian && std::endian::native == std::endian::big || !message.signals[a].is_little_endian && std::endian::native == std::endian::little){
-                val = std::byteswap(val);
+                //val = std::byteswap(val);
             }
             std::size_t current_byte = message.signals[a].bit_start / 8;
             std::size_t current_bit = message.signals[a].bit_start % 8;
@@ -461,7 +461,7 @@ int Unpackage_CAN_Message(const DBC_Database& dbc_db, const can_frame& frame, DB
             std::size_t current_bit = message.signals[a].bit_start % 8;
             reverse_memcpy_bits((std::uint8_t*)&val, (std::uint8_t*)frame.data, current_byte, current_bit, message.signals[a].bit_length);
             if (message.signals[a].is_little_endian && std::endian::native == std::endian::big || !message.signals[a].is_little_endian && std::endian::native == std::endian::little){
-                val = std::byteswap(val);
+                //val = std::byteswap(val);
             }
             output->push_back(val);
         } else{
@@ -470,7 +470,7 @@ int Unpackage_CAN_Message(const DBC_Database& dbc_db, const can_frame& frame, DB
             std::size_t current_bit = message.signals[a].bit_start % 8;
             reverse_memcpy_bits((std::uint8_t*)&val, (std::uint8_t*)frame.data, current_byte, current_bit, message.signals[a].bit_length);
             if (message.signals[a].is_little_endian && std::endian::native == std::endian::big || !message.signals[a].is_little_endian && std::endian::native == std::endian::little){
-                val = std::byteswap(val);
+                //val = std::byteswap(val);
             }
             output->push_back(val);
         }
@@ -495,20 +495,53 @@ int main(int argc, char** argv){
         std::cerr << "Error: Failed to create CAN socket\n";
         return -1;
     }
+    std::cout << "Notice: Opened CAN socket\n";
     if (Bind_CAN_Socket(can_socket, "can0") < 0){
         std::cerr << "Error: Failed to bind CAN socket\n";
         return -1;
     }
+    std::cout << "Notice: Binded CAN socket to 'can0'\n";
     //Clear_CAN_Bus(can_socket); // Probably doesn't work
-    
+ 
+    DBC_Message heartbeat_message_msg = dbc_db.Get_Message_By_Name("Axis2_Heartbeat");
+    DBC_Message get_adc_voltage_msg = dbc_db.Get_Message_By_Name("Axis2_Get_ADC_Voltage");
+    DBC_Message set_controller_mode_msg = dbc_db.Get_Message_By_Name("Axis2_Set_Controller_Mode");
+    DBC_Message set_input_vel_msg = dbc_db.Get_Message_By_Name("Axis2_Set_Input_Vel");
+ 
+    std::vector<std::uint8_t> message_data;
     can_frame frame;
+
+    Package_CAN_Message(set_controller_mode_msg, &message_data, 2, 1);
+    frame.can_id = set_controller_mode_msg.id;
+    frame.len = set_controller_mode_msg.length;
+    std::memcpy(frame.data, message_data.data(), 8);
+    Write_CAN_Bus(can_socket, frame);
+
+    Package_CAN_Message(set_input_vel_msg, &message_data, 1.0f, 1.0f);
+    frame.can_id = set_input_vel_msg.id;
+    frame.len = set_input_vel_msg.length;
+    std::memcpy(frame.data, message_data.data(), 8);
+    Write_CAN_Bus(can_socket, frame);
+
     while (true){
+    	frame.can_id = get_adc_voltage_msg.id | CAN_RTR_FLAG;
+    	frame.len = 0;
+    	Write_CAN_Bus(can_socket, frame);
+ 
         ssize_t bytes_read = Read_CAN_Bus(can_socket, &frame);
         if (bytes_read != sizeof(can_frame)) continue; // This probably doesn't work
         
         DBC_Message message;
         std::vector<std::any> package_data;
-        Unpackage_CAN_Message(dbc_db, frame, &message, &package_data);
+	Unpackage_CAN_Message(dbc_db, frame, &message, &package_data);
+	
+	//std::cout << ((message.id == get_adc_voltage_msg.id) || (message.id == (get_adc_voltage_msg.id | CAN_RTR_FLAG))) << "\n";
+	/*
+	if (
+	    message.id != heartbeat_message_msg.id &&
+	    message.id != get_adc_voltage_msg.id
+	) continue;
+	*/
 
         std::cout << "Message Name: " << message.name << "\n";
         for (std::size_t a = 0; a < package_data.size(); a++){
@@ -533,7 +566,7 @@ int main(int argc, char** argv){
             }
             std::cout << "\n";
         }
-        
+	std::cout << "\n";
     }
 
     Close_CAN_Socket(can_socket);
