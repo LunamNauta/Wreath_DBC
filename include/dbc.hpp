@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <iostream> //TODO: Remove
-
 namespace Wreath{
 namespace DBC{
 
