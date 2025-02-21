@@ -1,13 +1,9 @@
-#ifndef WREATH_DBC_PARSE_HEADER
-#define WREATH_DBC_PARSE_HEADER
-
 #include <algorithm>
 #include <iostream>
-#include <fstream>
 #include <string>
 #include <limits>
 
-#include "dbc.hpp"
+#include "wreath/dbc/parser.hpp"
 
 namespace Wreath{
 namespace DBC{
@@ -239,5 +235,3 @@ int from_file(std::ifstream& dbc_file, Database* out_database){
 }
 }
 }
-
-#endif

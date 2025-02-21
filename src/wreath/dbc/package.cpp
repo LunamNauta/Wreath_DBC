@@ -1,52 +1,14 @@
-#ifndef WREATH_CAN_HEADER
-#define WREATH_CAN_HEADER
-
 #include <iostream>
-#include <cstring>
 #include <cstdarg>
+#include <cstdint>
+#include <cstring>
 #include <climits>
-#include <bit>
 
-#include <linux/can/raw.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <unistd.h>
-
-#include "dbc.hpp"
+#include "wreath/dbc/package.hpp"
 
 namespace Wreath{
-namespace CAN{
-
-//---------------------------------------------------------------------------------------------------------
-
-int create_socket(int protocol){
-    return socket(PF_CAN, SOCK_RAW, protocol);
-}
-int close_socket(int socket){
-    return close(socket);
-}
-int bind_socket(int socket, const char* can_id, sockaddr_can* out_addr = nullptr){
-    sockaddr_can addr{};
-    ifreq if_req;
-
-    std::strcpy(if_req.ifr_name, can_id);
-    ioctl(socket, SIOCGIFINDEX, &if_req);
-    addr.can_ifindex = if_req.ifr_ifindex;
-    addr.can_family = AF_CAN;
-
-    if (out_addr) *out_addr = addr;
-    return bind(socket, (sockaddr*)&addr, sizeof(addr));
-}
-
-//---------------------------------------------------------------------------------------------------------
-
-ssize_t read_bus(int socket, can_frame* out_frame){
-    return read(socket, out_frame, sizeof(can_frame));
-}
-ssize_t write_bus(int socket, const can_frame& frame){
-    return write(socket, &frame, sizeof(can_frame));
-}
+namespace DBC{
+namespace Package{
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -108,7 +70,10 @@ void reverse_memcpy_bits(__u8* dest, const __u8* src, std::size_t sbyte, std::si
         }
     }
 }
-int package_dbc_message(const DBC::Message& message, int can_flags, can_frame* out_frame, ...){
+
+//---------------------------------------------------------------------------------------------------------
+
+int package_dbc_message(const Message& message, int can_flags, can_frame* out_frame, ...){
     if (std::endian::native != std::endian::little && std::endian::native != std::endian::big){
         std::cerr << "Warning (Package_CAN_Message): Cannot determine endianness. Package may be malformed\n";
     }
@@ -160,7 +125,7 @@ int package_dbc_message(const DBC::Message& message, int can_flags, can_frame* o
     }
     return 0;
 }
-int unpackage_dbc_message(const DBC::Message& message, const can_frame* frame, ...){
+int unpackage_dbc_message(const Message& message, const can_frame* frame, ...){
     if (std::endian::native != std::endian::little && std::endian::native != std::endian::big){
         std::cerr << "Warning (Unpackage_CAN_Message): Cannot determine endianness. Package may be malformed\n";
     }
@@ -214,5 +179,4 @@ int unpackage_dbc_message(const DBC::Message& message, const can_frame* frame, .
 
 }
 }
-
-#endif
+}
