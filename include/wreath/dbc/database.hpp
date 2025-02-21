@@ -28,11 +28,11 @@ struct Signal{
 };
 
 struct Message{
-    std::size_t id;
+    std::vector<Signal> signals;
+    std::string sender;
     std::string name;
     std::size_t length;
-    std::string sender;
-    std::vector<Signal> signals;
+    std::size_t id;
 
     void add_signal(const Signal& signal);
     int get_signal_bname(const std::string& name, Signal* out_signal) const;
@@ -40,15 +40,15 @@ struct Message{
 };
 
 struct Val_Decl{
-    std::size_t object_id;
-    std::string signal_name;
     std::vector<std::pair<std::size_t, std::string>> value_enum;
+    std::string signal_name;
+    std::size_t object_id;
 };
 
 struct Database{
-    std::string version;
-    std::vector<std::string> nodes;
     std::vector<Message> objects;
+    std::vector<std::string> nodes;
+    std::string version;
 
     void add_message(const Message& object);
     int get_message_bid(std::size_t id, Message* out_message) const;

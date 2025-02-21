@@ -13,7 +13,7 @@ static_assert(
 );
 static_assert(
     std::numeric_limits<double>::is_iec559 && sizeof(double) == 8,
-    "Static Error: Double is not IEC-559 32-bit\n"
+    "Static Error: Double is not IEC-559 64-bit\n"
 );
 
 #endif
