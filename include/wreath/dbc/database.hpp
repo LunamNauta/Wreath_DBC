@@ -50,6 +50,8 @@ struct Database{
     std::vector<std::string> nodes;
     std::string version;
 
+    int from_file(std::ifstream& dbc_file);
+
     void add_message(const Message& object);
     int get_message_bid(std::size_t id, Message* out_message) const;
     int get_message_bid(std::size_t id, Message** out_message);

@@ -1,6 +1,10 @@
 #include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <limits>
 
 #include "wreath/dbc/database.hpp"
+#include "wreath/dbc/parser.hpp"
 
 namespace Wreath{
 namespace DBC{
@@ -36,6 +40,49 @@ int Message::get_signal_bname(const std::string& name, Signal** out_signal){
 }
 
 //---------------------------------------------------------------------------------------------------------
+
+int Database::from_file(std::ifstream& dbc_file){
+    std::size_t last_message_id = std::numeric_limits<std::size_t>::max();
+    Message* message_ref;
+    Signal* signal_ref;
+    Message message;
+    Signal signal;
+    Val_Decl val;
+    int res = 0;
+
+    std::string line;
+    std::size_t line_number = 1;
+    while (std::getline(dbc_file, line)){
+        message = {};
+        if (!(res = Parser::parse_bo(line, line_number, &message))){
+            add_message(message);
+            last_message_id = message.id;
+            goto next_line;
+        } else if (res != 2) return res;
+
+        signal = {};
+        if (!(res = Parser::parse_sg(line, line_number, &signal))){
+            if (last_message_id == std::numeric_limits<std::size_t>::max()) DBC_ParError_Other("SG_", line_number, "SG_ line appears before first BO_ line");
+            get_message_bid(last_message_id, &message_ref);
+            message_ref->add_signal(signal);
+            goto next_line;
+        } else if (res != 2) return res;
+
+        val = {};
+        if (!(res = Parser::parse_val(line, line_number, &val))){
+            if (last_message_id == std::numeric_limits<std::size_t>::max()) DBC_ParError_Other("VAL_", line_number, "VAL_ line appears before first BO_ line");
+            get_message_bid(val.object_id, &message_ref);
+            if (message_ref->get_signal_bname(val.signal_name, &signal_ref)) DBC_ParError_Other("VAL_", line_number, "VAL_ line references SG_ that has not been defined");
+            signal_ref->set_value_enum(val.value_enum);
+            goto next_line;
+        } else if (res != 2) return res;
+
+        next_line:
+        line_number++;
+    }
+    
+    return 0;
+}
 
 void Database::add_message(const Message& object){
     std::vector<Message>::const_iterator it = std::upper_bound(objects.begin(), objects.end(), object, [](const Message& lhs, const Message& rhs){return lhs.id < rhs.id;});

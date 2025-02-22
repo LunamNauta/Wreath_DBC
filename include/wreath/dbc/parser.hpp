@@ -1,13 +1,11 @@
 #ifndef WREATH_DBC_PARSE_HEADER
 #define WREATH_DBC_PARSE_HEADER
 
-#include <fstream>
-
 #include "wreath/dbc/database.hpp"
 
 namespace Wreath{
 namespace DBC{
-namespace Parse{
+namespace Parser{
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -27,10 +25,6 @@ std::string_view::const_iterator absorb_until(const std::string_view::const_iter
 int parse_bo(const std::string_view& line, std::size_t line_number, Message* out_message);
 int parse_sg(const std::string_view& line, std::size_t line_number, Signal* output);
 int parse_val(const std::string_view& line, std::size_t line_number, Val_Decl* output);
-
-//---------------------------------------------------------------------------------------------------------
-
-int from_file(std::ifstream& dbc_file, Database* out_database);
 
 //---------------------------------------------------------------------------------------------------------
 

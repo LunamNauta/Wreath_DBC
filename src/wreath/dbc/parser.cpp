@@ -1,13 +1,12 @@
 #include <algorithm>
 #include <iostream>
 #include <string>
-#include <limits>
 
 #include "wreath/dbc/parser.hpp"
 
 namespace Wreath{
 namespace DBC{
-namespace Parse{
+namespace Parser{
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -182,51 +181,6 @@ int parse_val(const std::string_view& line, std::size_t line_number, Val_Decl* o
     }
     if (!output->value_enum.size()) return 1;
 
-    return 0;
-}
-
-//---------------------------------------------------------------------------------------------------------
-
-int from_file(std::ifstream& dbc_file, Database* out_database){
-    std::size_t last_message_id = std::numeric_limits<std::size_t>::max();
-    Message* message_ref;
-    Signal* signal_ref;
-    Message message;
-    Signal signal;
-    Val_Decl val;
-    int res = 0;
-
-    std::string line;
-    std::size_t line_number = 1;
-    while (std::getline(dbc_file, line)){
-        message = {};
-        if (!(res = parse_bo(line, line_number, &message))){
-            out_database->add_message(message);
-            last_message_id = message.id;
-            goto next_line;
-        } else if (res != 2) return res;
-
-        signal = {};
-        if (!(res = parse_sg(line, line_number, &signal))){
-            if (last_message_id == std::numeric_limits<std::size_t>::max()) DBC_ParError_Other("SG_", line_number, "SG_ line appears before first BO_ line");
-            out_database->get_message_bid(last_message_id, &message_ref);
-            message_ref->add_signal(signal);
-            goto next_line;
-        } else if (res != 2) return res;
-
-        val = {};
-        if (!(res = parse_val(line, line_number, &val))){
-            if (last_message_id == std::numeric_limits<std::size_t>::max()) DBC_ParError_Other("VAL_", line_number, "VAL_ line appears before first BO_ line");
-            out_database->get_message_bid(val.object_id, &message_ref);
-            if (message_ref->get_signal_bname(val.signal_name, &signal_ref)) DBC_ParError_Other("VAL_", line_number, "VAL_ line references SG_ that has not been defined");
-            signal_ref->set_value_enum(val.value_enum);
-            goto next_line;
-        } else if (res != 2) return res;
-
-        next_line:
-        line_number++;
-    }
-    
     return 0;
 }
 
