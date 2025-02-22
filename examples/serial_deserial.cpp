@@ -59,7 +59,7 @@ int main(int argc, char** argv){
     std::cout << +heartbeat.trajectory_done_flag << " ";
     std::cout << "\n";
 
-    Wreath::CAN::Serial::direct_serial(&frame, &heartbeat, sizeof(heartbeat));
+    Wreath::CAN::Serial::direct_serial(&frame, &heartbeat, heartbeat_msg);
     std::cout << "Encoded Data: ";
     for (__u8 byte : frame.data) std::cout << +byte << " ";
     std::cout << "\n";

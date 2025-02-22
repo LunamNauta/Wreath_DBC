@@ -7,10 +7,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 file(GLOB_RECURSE sources src/*.cpp)
 
-add_executable(main ${sources})
-target_include_directories(main PUBLIC include)
+add_library(wreathdbc ${sources})
+target_include_directories(wreathdbc PUBLIC include)
 
-set_target_properties(main
+set_target_properties(wreathdbc
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
